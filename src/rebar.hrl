@@ -23,7 +23,7 @@
 -define(DEFAULT_TEST_DEPS_DIR, "test/lib").
 -define(DEFAULT_RELEASE_DIR, "rel").
 -define(CONFIG_VERSION, "1.1.0").
--define(DEFAULT_CDN, "https://repo.hex.pm/").
+-define(DEFAULT_CDN, "https://repo.hex.pm").
 -define(REMOTE_PACKAGE_DIR, "tarballs").
 -define(LOCK_FILE, "rebar.lock").
 -define(DEFAULT_COMPILER_SOURCE_FORMAT, relative).
