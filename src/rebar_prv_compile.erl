@@ -156,6 +156,10 @@ compile(State, AppInfo) ->
     compile(State, rebar_state:providers(State), AppInfo).
 
 compile(State, Providers, AppInfo) ->
+    stamp:maybe(State, AppInfo, ["Recompiling ", rebar_app_info:name(AppInfo)],
+                     fun() -> do_compile(State, Providers, AppInfo) end, AppInfo).
+
+do_compile(State, Providers, AppInfo) ->
     ?INFO("Compiling ~ts", [rebar_app_info:name(AppInfo)]),
     AppDir = rebar_app_info:dir(AppInfo),
     AppInfo1 = rebar_hooks:run_all_hooks(AppDir, pre, ?PROVIDER,  Providers, AppInfo, State),
