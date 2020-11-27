@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ -t 1 ] ; then
+    maybeit="-it"
+else
+    maybeit=""
+fi
+
+if [ "${1:-}" = "--in-docker" ]; then
+    #shellcheck disable=SC2086
+    exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:21.3 ./build
+fi
+
+export REBAR3_PROJECT_BUILD_STAMPR=ignore
+./bootstrap
+version="$(./rebar3 -v | grep Erlang | awk '{print $2}')"
+mv './rebar3' "./rebar3-$version"
