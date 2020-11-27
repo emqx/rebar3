@@ -35,7 +35,9 @@ make_stamp(Profiles, Dir) ->
                              {ok, B} = file:read_file(filename:join([Dir, F])),
                              crypto:hash(sha, B)
                      end, SrcFiles),
-    hex(crypto:hash(sha, [Sums, io_lib:format("~p", [Profiles])])).
+    Stamp = hex(crypto:hash(sha, [Sums, io_lib:format("~p", [Profiles])])),
+    ?DEBUG("Stamp ~s ~p ~s", [Dir, Profiles, Stamp]),
+    Stamp.
 
 hex(Bin) when is_binary(Bin) ->
     iolist_to_binary([io_lib:format("~2.16.0b",[X]) || <<X>> <= Bin]).
