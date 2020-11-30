@@ -16,4 +16,3 @@ fi
 export REBAR3_PROJECT_BUILD_STAMPR=ignore
 ./bootstrap
 version="$(./rebar3 -v | grep Erlang | awk '{print $2}')"
-mv './rebar3' "./rebar3-$version"
