@@ -31,5 +31,4 @@ if [ "${1:-}" = "--in-docker" ]; then
     exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:21.3 ./build
 fi
 
-export REBAR3_PROJECT_BUILD_STAMPR=ignore
 ./bootstrap

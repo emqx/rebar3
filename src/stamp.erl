@@ -24,8 +24,9 @@ get_stamp_file(Dir) ->
 
 get_stamp(Profiles, Dir) ->
     case getenv("REBAR3_PROJECT_BUILD_STAMP", false) of
-        false -> make_stamp(Profiles, Dir);
+        false -> false;
         "ignore" -> false;
+        "auto" -> make_stamp(Profiles, Dir);
         Forced -> iolist_to_binary(Forced)
     end.
 
