@@ -466,6 +466,7 @@ generate_and_compile(ModuleFile) ->
     ErlCode = rewrite_module_attribute(ErlCode0, ModuleName),
     TmpModName = iolist_to_binary([ModuleName, ".erl"]),
     TmpModFile = filename:join([rebar_file_utils:system_tmpdir(), TmpModName]),
+    ok = filelib:ensure_dir(TmpModFile),
     ok = file:write_file(TmpModFile, ErlCode),
     CompileOpts = [verbose,report_errors,report_warnings,return_errors,binary],
     case compile:file(binary_to_list(TmpModFile), CompileOpts) of
