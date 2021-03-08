@@ -212,7 +212,7 @@ cp_r([], _Dest) ->
 cp_r(Sources, Dest) ->
     case os:type() of
         {unix, Os} ->
-            case filter_same_dir(Sources, Dest) of
+            case filter_cp_dirs(Sources, Dest) of
             [] -> ok;
             Sources1 ->
             EscSources = [rebar_utils:escape_chars(Src) || Src <- Sources1],
@@ -607,13 +607,14 @@ cp_r_win32(Source,Dest) ->
 
 bin(X) -> iolist_to_binary(X).
 
-filter_same_dir(Sources, Dest) ->
+filter_cp_dirs(Sources, Dest) ->
     RealSrcDirs = resolve_real_dirs(Sources),
     RealDstDir = ec_file:real_dir_path(Dest),
     lists:filter(fun(Src) ->
                          Dir = bin(filename:dirname(Src)),
                          RealDir = maps:get(Dir, RealSrcDirs),
-                         RealDir =/= RealDstDir
+                         RealDir =/= RealDstDir andalso
+                            bin(filename:basename(Src)) =/= <<".git">> % do not copy .git
                  end, Sources).
 
 resolve_real_dirs(Srcs) ->
