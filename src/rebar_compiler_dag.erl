@@ -443,7 +443,7 @@ compile_order([{P1,P2}|T], AppPaths, AppDeps) ->
 %% Swap app name with paths in the order, and sort there; this lets us
 %% bail out early in a search where a file won't be found.
 prepare_app_paths(AppPaths) ->
-    lists:sort([{filename:split(Path), Name} || {Name, Path} <- AppPaths]).
+    [{filename:split(Path), Name} || {Name, Path} <- AppPaths].
 
 %% Look for the app to which the path belongs; needed to
 %% go from an edge between files in the DAG to building
