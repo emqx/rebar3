@@ -63,7 +63,6 @@ handle_project_apps(Providers, State) ->
     Cwd = rebar_state:dir(State),
     ProjectApps = rebar_state:project_apps(State),
     {ok, ProjectApps1} = rebar_digraph:compile_order(ProjectApps),
-
     %% Run top level hooks *before* project apps compiled but *after* deps are
     rebar_hooks:run_all_hooks(Cwd, pre, ?PROVIDER, Providers, State),
 
@@ -358,15 +357,16 @@ build_rebar3_apps(DAGs, Apps, State) ->
     %% we actually need to compile each DAG one after the other to prevent
     %% issues where a .yrl file that generates a .erl file gets to be seen.
     ?INFO("Analyzing applications...", []),
+    %?INFO("------------ Apps: ~p", [[rebar_app_info:name(P) || P <- Apps]]),
     [begin
-         {Ctx, ReorderedApps} = rebar_compiler:analyze_all(DAG, Apps),
+         {Ctx, _ReorderedApps} = rebar_compiler:analyze_all(DAG, Apps),
          lists:foreach(
              fun(AppInfo) ->
                 DAG =:= LastDAG andalso
                   ?INFO("Compiling ~ts", [rebar_app_info:name(AppInfo)]),
                 rebar_compiler:compile_analyzed(DAG, AppInfo, Ctx)
              end,
-             ReorderedApps
+             Apps
          ),
          {ExtraCtx, ReorderedExtraApps} = rebar_compiler:analyze_all_extras(DAG, Apps),
          lists:foreach(
