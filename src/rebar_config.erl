@@ -465,7 +465,7 @@ generate_and_compile(ModuleFile) ->
     ModuleName = module_name(ModuleFile),
     ErlCode = rewrite_module_attribute(ErlCode0, ModuleName),
     TmpModName = iolist_to_binary([ModuleName, ".erl"]),
-    TmpModFile = filename:join([rebar_file_utils:system_tmpdir(), TmpModName]),
+    TmpModFile = filename:join([rebar_tmp_dir(), TmpModName]),
     ok = filelib:ensure_dir(TmpModFile),
     ok = file:write_file(TmpModFile, ErlCode),
     CompileOpts = [verbose,report_errors,report_warnings,return_errors,binary],
@@ -480,3 +480,5 @@ generate_and_compile(ModuleFile) ->
 
 rewrite_module_attribute(ErlCode, ModuleName) ->
     re:replace(ErlCode, "-module(.+)", ["-module('", ModuleName ,"')."]).
+
+rebar_tmp_dir() -> ".rebar".
