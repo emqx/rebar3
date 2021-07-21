@@ -275,7 +275,7 @@ find_deps_of_deps([Name|Names], Apps, State, Acc) ->
                 App0 -> App0
             end
     end,
-    DepNames = proplists:get_value(applications, rebar_app_info:app_details(App), []),
+    DepNames = ignore_lib_apps(proplists:get_value(applications, rebar_app_info:app_details(App), [])),
     BinDepNames = [rebar_utils:to_binary(Dep) || Dep <- DepNames,
                    %% ignore system libs; shouldn't include them.
                    DepDir <- [code:lib_dir(Dep)],
@@ -322,3 +322,12 @@ write_windows_script(Target, _) ->
         "escript.exe \"%~dpn0\" %*\r\n",
     ok = file:write_file(CmdPath, CmdScript).
 
+ignore_lib_apps(Apps) ->
+    LibApps = [kernel, stdlib, sasl, appmon, eldap, erts,
+               syntax_tools, ssl, crypto, mnesia, os_mon,
+               inets, goldrush, gproc, runtime_tools,
+               snmp, otp_mibs, public_key, asn1, ssh, hipe,
+               common_test, observer, webtool, xmerl, tools,
+               test_server, compiler, debugger, eunit, et,
+               wx],
+    [AppName || AppName <- Apps, not lists:member(AppName, LibApps)].
