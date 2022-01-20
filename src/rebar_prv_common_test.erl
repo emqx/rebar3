@@ -579,6 +579,8 @@ find_file_dirs(Files) ->
     %% eliminate duplicates
     lists:usort(AllDirs).
 
+%% Scan bare suites first, if none of the apps has a path match
+%% try to match as extra test code dir
 maybe_inject_test_dir(State, AppAcc, [App|Rest], Dir) ->
     case rebar_file_utils:path_from_ancestor(Dir, rebar_app_info:dir(App)) of
         {ok, []}   ->
@@ -590,13 +592,21 @@ maybe_inject_test_dir(State, AppAcc, [App|Rest], Dir) ->
             ok = copy_bare_suites(Dir, rebar_app_info:out_dir(App)),
             Opts = inject_test_dir(rebar_state:opts(State), rebar_app_info:out_dir(App)),
             {rebar_state:opts(State, Opts), AppAcc ++ [App]};
-        {ok, Path} ->
-            Opts = inject_test_dir(rebar_app_info:opts(App), Path),
-            {State, AppAcc ++ [rebar_app_info:opts(App, Opts)] ++ Rest};
-        {error, badparent} ->
+        _ ->
             maybe_inject_test_dir(State, AppAcc ++ [App], Rest, Dir)
     end;
 maybe_inject_test_dir(State, AppAcc, [], Dir) ->
+    maybe_inject_test_dir2(State, [], AppAcc, Dir).
+
+maybe_inject_test_dir2(State, AppAcc, [App|Rest], Dir) ->
+    case rebar_file_utils:path_from_ancestor(Dir, rebar_app_info:dir(App)) of
+        {ok, Path} when Path =/= [] ->
+            Opts = inject_test_dir(rebar_app_info:opts(App), Path),
+            {State, AppAcc ++ [rebar_app_info:opts(App, Opts)] ++ Rest};
+        {error, badparent} ->
+            maybe_inject_test_dir2(State, AppAcc ++ [App], Rest, Dir)
+    end;
+maybe_inject_test_dir2(State, AppAcc, [], Dir) ->
     case rebar_file_utils:path_from_ancestor(Dir, rebar_state:dir(State)) of
         {ok, []}   ->
             %% normal operation involves copying the entire directory a
@@ -692,19 +702,27 @@ translate_paths(State, Type, [{Type, Val}|Rest], Acc) when is_integer(hd(Val)) -
     translate_paths(State, Type, [{Type, [Val]}|Rest], Acc);
 translate_paths(State, Type, [{Type, Files}|Rest], Acc) ->
     Apps = rebar_state:project_apps(State),
-    New = {Type, lists:map(fun(File) -> translate(State, Apps, File) end, Files)},
+    New = {Type, lists:map(fun(File) -> translate(State, Apps, File, []) end, Files)},
     translate_paths(State, Type, Rest, [New|Acc]);
 translate_paths(State, Type, [Test|Rest], Acc) ->
     translate_paths(State, Type, Rest, [Test|Acc]).
 
-translate(State, [App|Rest], Path) ->
+translate(State, [App|Rest], Path, AppAcc) ->
     case rebar_file_utils:path_from_ancestor(Path, rebar_app_info:dir(App)) of
-        {ok, P}            -> filename:join([rebar_app_info:out_dir(App), P]);
-        {error, badparent} -> translate(State, Rest, Path)
+        {ok, ""} -> filename:join([rebar_app_info:out_dir(App), ""]);
+        _ -> translate(State, Rest, Path, AppAcc ++ [App])
     end;
-translate(State, [], Path) ->
+translate(State, [], Path, AppAcc) ->
+    translate2(State, AppAcc, Path).
+
+translate2(State, [App|Rest], Path) ->
+    case rebar_file_utils:path_from_ancestor(Path, rebar_app_info:dir(App)) of
+        {ok, P} when P =/= [] -> filename:join([rebar_app_info:out_dir(App), P]);
+        {error, badparent} -> translate2(State, Rest, Path)
+    end;
+translate2(State, [], Path) ->
     case rebar_file_utils:path_from_ancestor(Path, rebar_state:dir(State)) of
-        {ok, P}            -> filename:join([rebar_dir:base_dir(State), "extras", P]);
+        {ok, P} -> filename:join([rebar_dir:base_dir(State), "extras", P]);
         %% not relative, leave as is
         {error, badparent} -> Path
     end.

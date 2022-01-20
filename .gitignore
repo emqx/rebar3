@@ -25,3 +25,7 @@ env
 
 # hex_core artifact
 src/vendored/r3_safe_erl_term.erl
+
+# emqx additions
+rebar3-*
+.tool-versions

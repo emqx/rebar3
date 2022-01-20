@@ -39,7 +39,8 @@ init(State) ->
 do(State) ->
     rebar_paths:set_paths([runtime], State),
     XrefChecks = prepare(State),
-    XrefIgnores = rebar_state:get(State, xref_ignores, []),
+    XrefIgnores0 = rebar_state:get(State, xref_ignores, []),
+    XrefIgnores = XrefIgnores0 ++ exclude_mods(State),
     %% Run xref checks
     ?INFO("Running cross reference analysis...", []),
     XrefResults = xref_checks(XrefChecks, XrefIgnores),
@@ -112,6 +113,15 @@ prepare(State) ->
                                 sets:from_list(?SUPPORTED_XREFS),
                                 sets:from_list(ConfXrefChecks))),
     XrefChecks.
+
+-spec exclude_mods(rebar_state:t()) -> [atom()].
+exclude_mods(State) ->
+    lists:foldl(fun(App, Acc) ->
+        case dict:find(xref_ignores, rebar_app_info:opts(App)) of
+            {ok, Vals} -> Acc ++ Vals;
+            _ -> Acc
+        end
+    end, [], rebar_state:project_apps(State)).
 
 xref_checks(XrefChecks, XrefIgnores) ->
     run_xref_checks(XrefChecks, XrefIgnores, []).
