@@ -212,6 +212,10 @@ cp_r([], _Dest) ->
 cp_r(Sources, Dest) ->
     case os:type() of
         {unix, Os} ->
+            % ensure destination exists before copying files into it
+            {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
+                           [rebar_utils:escape_chars(Dest)]),
+                      [{use_stdout, false}, abort_on_error]),
             case filter_cp_dirs(Sources, Dest) of
             [] -> ok;
             Sources1 ->
@@ -228,10 +232,6 @@ cp_r(Sources, Dest) ->
                 {false, _} ->
                     SourceStr
             end,
-            % ensure destination exists before copying files into it
-            {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
-                           [rebar_utils:escape_chars(Dest)]),
-                      [{use_stdout, false}, abort_on_error]),
             {ok, []} = rebar_utils:sh(?FMT("cp -Rp ~ts \"~ts\"",
                                            [Source, rebar_utils:escape_double_quotes(Dest)]),
                                       [{use_stdout, true}, abort_on_error]),
