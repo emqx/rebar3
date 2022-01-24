@@ -222,6 +222,10 @@ cp_r([], _Dest, _Options) ->
 cp_r(Sources, Dest, Options) ->
     case os:type() of
         {unix, Os} ->
+            % ensure destination exists before copying files into it
+            {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
+                           [rebar_utils:escape_chars(Dest)]),
+                      [{use_stdout, false}, abort_on_error]),
             case filter_same_dir(Sources, Dest) of
             [] -> ok;
             Sources1 ->
@@ -238,10 +242,6 @@ cp_r(Sources, Dest, Options) ->
                 {false, _} ->
                     SourceStr
             end,
-            % ensure destination exists before copying files into it
-            {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
-                           [rebar_utils:escape_chars(Dest)]),
-                      [{use_stdout, false}, abort_on_error]),
 
             DefaultOptStr = "-Rp",
             OptStr = case proplists:get_value(dereference, Options, false) of
@@ -555,17 +555,17 @@ delete_each_dir_win32([Dir | Rest]) ->
 xcopy_win32(Source,Dest, Options)->
     %% "xcopy \"~ts\" \"~ts\" /q /y /e 2> nul", Changed to robocopy to
     %% handle long names. May have issues with older windows.
-    
+
     CopySubdirectories = "/e",
     DontFollow = "/sl",
-    
+
     Opt = [CopySubdirectories],
     % By default Windows follows symbolic links except if the "/sl" options is given.
     % Add "/sl" for default so it doesn't follow symbolic links and behaves more like unix
     OptStr = case proplists:get_value(dereference, Options, false) of
-        true -> 
+        true ->
             string:join(Opt, " ");
-        false -> 
+        false ->
             % Default option
             string:join([DontFollow|Opt], " ")
     end,
@@ -616,10 +616,10 @@ cp_r_win32({false, Source},{false, Dest}, Options) ->
             true ->
                 {ok, _} = file:copy(Source, Dest),
                 ok;
-            false -> 
+            false ->
                 file:make_symlink(OriginalFile, Dest)
             end;
-        _ -> 
+        _ ->
             {ok, _} = file:copy(Source, Dest),
             ok
     end,
