@@ -28,7 +28,7 @@ erl -noshell -eval "${CHECK_VSN}"
 
 if [ "${1:-}" = "--in-docker" ]; then
     #shellcheck disable=SC2086
-    exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:21.3 ./build
+    exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:24.1.5 ./build
 fi
 
 ./bootstrap
