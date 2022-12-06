@@ -66,7 +66,6 @@ do(State) ->
             {error, {?MODULE, {not_an_application_structure, OutDir}}};
         [AppInfo] ->
             AppInfo1 = rebar_app_info:out_dir(AppInfo, OutDir),
-
             %% run compile in the default namespace
             rebar_prv_compile:compile(rebar_state:namespace(State, default), AppInfo1),
 

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ -t 1 ] ; then
+    maybeit="-it"
+else
+    maybeit=""
+fi
+
+VERSION="$(git describe --tag)"
+
+CHECK_VSN="$(cat <<-EOF
+{ok, L} = file:consult("rebar.config"),
+{_, Vsn} = lists:keyfind(escript_comment, 1, L),
+case Vsn =:= "%%Rebar3 ${VERSION}" of
+    true -> halt(0);
+    false ->
+        io:format("version mismatch in rebar.config\n"),
+        io:format("escript_comment: " ++ Vsn ++ "\n"),
+        io:format("git descrite: ${VERSION}"),
+        halt(1)
+end.
+EOF
+)"
+
+erl -noshell -eval "${CHECK_VSN}"
+
+if [ "${1:-}" = "--in-docker" ]; then
+    #shellcheck disable=SC2086
+    exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:24.1.5 ./build
+fi
+
+./bootstrap

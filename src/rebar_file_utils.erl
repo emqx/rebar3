@@ -212,7 +212,14 @@ cp_r([], _Dest) ->
 cp_r(Sources, Dest) ->
     case os:type() of
         {unix, Os} ->
-            EscSources = [rebar_utils:escape_chars(Src) || Src <- Sources],
+            % ensure destination exists before copying files into it
+            {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
+                           [rebar_utils:escape_chars(Dest)]),
+                      [{use_stdout, false}, abort_on_error]),
+            case filter_cp_dirs(Sources, Dest) of
+            [] -> ok;
+            Sources1 ->
+            EscSources = [rebar_utils:escape_chars(Src) || Src <- Sources1],
             SourceStr = rebar_string:join(EscSources, " "),
             % On darwin the following cp command will cp everything inside
             % target vs target and everything inside, so we chop the last char
@@ -225,14 +232,11 @@ cp_r(Sources, Dest) ->
                 {false, _} ->
                     SourceStr
             end,
-            % ensure destination exists before copying files into it
-            {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
-                           [rebar_utils:escape_chars(Dest)]),
-                      [{use_stdout, false}, abort_on_error]),
             {ok, []} = rebar_utils:sh(?FMT("cp -Rp ~ts \"~ts\"",
                                            [Source, rebar_utils:escape_double_quotes(Dest)]),
                                       [{use_stdout, true}, abort_on_error]),
-            ok;
+            ok
+            end;
         {win32, _} ->
             lists:foreach(fun(Src) -> ok = cp_r_win32(Src,Dest) end, Sources),
             ok
@@ -600,3 +604,30 @@ cp_r_win32(Source,Dest) ->
                           ok = cp_r_win32({filelib:is_dir(Src), Src}, Dst)
                   end, filelib:wildcard(Source)),
     ok.
+
+bin(X) -> iolist_to_binary(X).
+
+filter_cp_dirs(Sources, Dest) ->
+    RealSrcDirs = resolve_real_dirs(Sources),
+    RealDstDir = ec_file:real_dir_path(Dest),
+    lists:filter(fun(Src) ->
+                         Dir = bin(filename:dirname(Src)),
+                         RealDir = maps:get(Dir, RealSrcDirs),
+                         RealDir =/= RealDstDir andalso
+                            bin(filename:basename(Src)) =/= <<".git">> % do not copy .git
+                 end, Sources).
+
+resolve_real_dirs(Srcs) ->
+    resolve_real_dirs(Srcs, #{}).
+
+resolve_real_dirs([], Acc) -> Acc;
+resolve_real_dirs([H|T], Acc) ->
+    Dir = bin(filename:dirname(H)),
+    case maps:get(Dir, Acc, false) of
+        false ->
+            %% real_dir_path can be slow, use Acc as a cache
+            RealDir = ec_file:real_dir_path(Dir),
+            resolve_real_dirs(T, Acc#{Dir => RealDir});
+        _RealDir ->
+            resolve_real_dirs(T, Acc)
+    end.

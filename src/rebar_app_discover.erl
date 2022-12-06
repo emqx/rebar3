@@ -26,7 +26,7 @@ do(State, LibDirs) ->
     RebarOpts = rebar_state:opts(State),
     SrcDirs = rebar_dir:src_dirs(RebarOpts, ["src"]),
     Apps = find_apps(Dirs, SrcDirs, all, State),
-    ProjectDeps = rebar_state:deps_names(State),
+    %ProjectDeps = rebar_state:deps_names(State),
     DepsDir = rebar_dir:deps_dir(State),
     CurrentProfiles = rebar_state:current_profiles(State),
 
@@ -63,9 +63,12 @@ do(State, LibDirs) ->
                                 {AppInfo1, StateAcc1} = merge_opts(TopLevelApp, AppInfo, StateAcc),
                                 OutDir = filename:join(DepsDir, Name),
                                 AppInfo2 = rebar_app_info:out_dir(AppInfo1, OutDir),
-                                ProjectDeps1 = lists:delete(Name, ProjectDeps),
+                                %ProjectDeps1 = lists:delete(Name, ProjectDeps),
                                 rebar_state:project_apps(StateAcc1,
-                                                         rebar_app_info:deps(AppInfo2, ProjectDeps1));
+                                                         AppInfo2);
+                                                        %,rebar_app_info:deps(AppInfo2, ProjectDeps1));
+                                                        % the above line is replaced becuase emqx's special need:
+                                                        % emqx's top level is both an application and an umbrella project
                             false ->
                                 ?INFO("Ignoring ~ts", [Name]),
                                 StateAcc
