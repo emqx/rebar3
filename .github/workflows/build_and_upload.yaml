@@ -1,0 +1,22 @@
+name: Build and upload
+
+on:
+  push:
+    tags:
+      - '*-emqx-*'
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker info
+    - name: build
+      run: ./build --in-docker
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref }}
+        files: ./rebar3
+        draft: false
+        prerelease: false
