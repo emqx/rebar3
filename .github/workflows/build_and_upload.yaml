@@ -16,7 +16,7 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        name: Release ${{ github.ref }}
+        name: Release ${{ github.ref_name }}
         files: ./rebar3
         draft: false
         prerelease: false
