@@ -25,7 +25,7 @@ jobs:
       LATEST_OTP_RELEASE: 25
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Compile
       run: ./bootstrap
     - name: CT tests
