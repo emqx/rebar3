@@ -28,7 +28,7 @@ erl -noshell -eval "${CHECK_VSN}"
 
 if [ "${1:-}" = "--in-docker" ]; then
     #shellcheck disable=SC2086
-    exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:21.3 ./build
+    exec docker run $maybeit --rm -v "$(pwd):/src" --workdir /src erlang:24 git config --global --add safe.directory /src && ./build
 fi
 
 export REBAR3_PROJECT_BUILD_STAMPR=ignore
