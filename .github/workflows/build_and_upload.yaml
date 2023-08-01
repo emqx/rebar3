@@ -4,17 +4,31 @@ on:
   push:
     tags:
       - '*-emqx-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        required: true
+      create_release:
+        type: boolean
+        required: true
+        default: false
 
 jobs:
   build-and-upload:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:25
     steps:
     - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.tag }}
     - run: docker info
     - name: build
-      run: ./build --in-docker
+      run: ./bootstrap
     - name: Create Release
       uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' || inputs.create_release
       with:
         name: Release ${{ github.ref_name }}
         files: ./rebar3
