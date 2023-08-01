@@ -24,7 +24,9 @@ jobs:
       with:
         ref: ${{ github.event.inputs.tag }}
     - name: build
-      run: ./bootstrap
+      run: |
+        git config --global --add safe.directory $(pwd)
+        ./bootstrap
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: github.event_name == 'push' || inputs.create_release
