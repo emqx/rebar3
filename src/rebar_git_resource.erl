@@ -192,6 +192,8 @@ git_cache_ref_repo(Url) ->
     case os:getenv("REBAR_GIT_CACHE_DIR") of
         false ->
             noref;
+        "" ->
+            noref;
         Dir ->
             Full = case parse_git_url_as_cache_path(Url) of
                 error ->
