@@ -163,20 +163,20 @@ download_(Dir, {git, Url, ""}, State) ->
 download_(Dir, {git, Url, {branch, Branch}}, _State) ->
     ok = filelib:ensure_dir(Dir),
     maybe_warn_local_url(Url),
-    git_clone(branch, git_vsn(), Url, Dir, Branch);
+    git_clone2(branch, git_vsn(), Url, Dir, Branch);
 download_(Dir, {git, Url, {tag, Tag}}, _State) ->
     ok = filelib:ensure_dir(Dir),
     maybe_warn_local_url(Url),
-    git_clone(tag, git_vsn(), Url, Dir, Tag);
+    git_clone2(tag, git_vsn(), Url, Dir, Tag);
 download_(Dir, {git, Url, {ref, Ref}}, _State) ->
     ok = filelib:ensure_dir(Dir),
     maybe_warn_local_url(Url),
-    git_clone(ref, git_vsn(), Url, Dir, Ref);
+    git_clone2(ref, git_vsn(), Url, Dir, Ref);
 download_(Dir, {git, Url, Rev}, _State) ->
     ?WARN("WARNING: It is recommended to use {branch, Name}, {tag, Tag} or {ref, Ref}, otherwise updating the dep may not work as expected.", []),
     ok = filelib:ensure_dir(Dir),
     maybe_warn_local_url(Url),
-    git_clone(rev, git_vsn(), Url, Dir, Rev).
+    git_clone2(rev, git_vsn(), Url, Dir, Rev).
 
 maybe_warn_local_url(Url) ->
     WarnStr = "Local git resources (~ts) are unsupported and may have odd behaviour. "
@@ -186,6 +186,95 @@ maybe_warn_local_url(Url) ->
         {error, no_default_port} -> ?WARN(WarnStr, [Url]);
         {error, {malformed_url, _, _}} -> ?WARN(WarnStr, [Url]);
         _ -> ok
+    end.
+
+git_cache_ref_repo(Url) ->
+    case os:getenv("REBAR_GIT_CACHE_DIR") of
+        false ->
+            noref;
+        Dir ->
+            Full = case parse_git_url_as_cache_path(Url) of
+                error ->
+                    noref;
+                Path ->
+                    filename:join([Dir, Path])
+            end,
+            DotGit = filename:join(Full, ".git"),
+            case filelib:is_dir(DotGit) of
+                true ->
+                    {hit, Full};
+                false ->
+                    {miss, Full}
+            end
+    end.
+
+parse_git_url_as_cache_path(Url) ->
+    case parse_git_url(Url) of
+        {ok, {Host0, Path0}} ->
+            Host = rebar_string:trim(Host0, both, "/"),
+            Path = rebar_string:trim(Path0, both, "/"),
+            filename:join([Host, Path]);
+        Other ->
+            ?DEBUG("Failed to parse url ~ts ~p", [Url, Other]),
+            error
+    end.
+
+%% copy the repo dir then rename
+cp_r(Source, Dest0) ->
+    ok = filelib:ensure_dir(Dest0),
+    DstName = rebar_utils:escape_chars(filename:basename(Dest0)),
+    Opts = [{cd, filename:dirname(Dest0)},
+            {use_stdout, true},
+            abort_on_error
+           ],
+    {ok, []} = rebar_utils:sh(?FMT("rm -rf ~ts", [DstName]), Opts),
+    {ok, []} = rebar_utils:sh(?FMT("cp -Rp ~ts ~ts", [Source, DstName]), Opts),
+    ok.
+
+git_clone2(tag, GitVsn, Url, Dir, Tag) ->
+    CloneF = fun() -> git_clone(tag, GitVsn, Url, Dir, Tag) end,
+    case git_cache_ref_repo(Url) of
+        noref ->
+            ok = CloneF();
+        {hit, RefDir} ->
+            %% cache hit, reference-clone from the cache
+            ?DEBUG("Git reference-cache hit: ~ts", [RefDir]),
+            ok = git_clone_ref(RefDir, CloneF);
+        {miss, RefDir} ->
+            %% cache miss, never auto-fill reference-clone cache
+            ?DEBUG("Git reference-cache miss: ~ts", [RefDir]),
+            ok = CloneF(),
+            ok = maybe_fill_ref(RefDir, Dir)
+    end;
+git_clone2(GitRefType, GitVsn, Url, Dir, GitRef) ->
+    git_clone(GitRefType, GitVsn, Url, Dir, GitRef).
+
+git_clone_ref(RefDir, CloneF) ->
+    put(git_reference_clone_from, RefDir),
+    try
+        ok = CloneF()
+    after
+        erase(git_reference_clone_from)
+    end.
+
+maybe_fill_ref(RefDir, Dir) ->
+    case os:getenv("REBAR_GIT_CACHE_REF_AUTOFILL") of
+        "0" ->
+            %% do nothing if it's set to turn off auto-fill
+            ok;
+        _ ->
+            ?DEBUG("Git reference-cache autofill: ~ts", [RefDir]),
+            ok = cp_r(Dir, RefDir),
+            ShallowMark = filename:join([RefDir, ".git", "shallow"]),
+            case filelib:is_regular(ShallowMark) of
+                true ->
+                    %% it's a shallow clone, unshallow it
+                    Opts = [{cd, RefDir}, {use_stdout, true}, abort_on_error],
+                    {ok, _} = rebar_utils:sh("git fetch origin --unshallow", Opts),
+                    ok;
+                false ->
+                    ok
+            end
     end.
 
 %% Use different git clone commands depending on git --version
@@ -401,13 +490,19 @@ parse_tags(Dir) ->
     end.
 
 git_clone_options() ->
-    Option = case os:getenv("REBAR_GIT_CLONE_OPTIONS") of
+    Option = case get(git_reference_clone_from) of
+        undefined ->
+            "";
+        Dir ->
+            "--reference " ++ Dir ++ " --dissociate "
+    end ++
+    case os:getenv("REBAR_GIT_CLONE_OPTIONS") of
         false ->
             "" ;
         Opt ->
-            ?DEBUG("Git Clone Options: ~p",[Opt]),
             Opt
     end,
+    ?DEBUG("Git Clone Options: ~p", [Option]),
     Option.
 
 check_type_support() ->
