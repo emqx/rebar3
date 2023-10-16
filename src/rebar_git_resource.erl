@@ -237,11 +237,19 @@ git_clone2(tag, GitVsn, Url, Dir, Tag) ->
     CloneF = fun() -> git_clone(tag, GitVsn, Url, Dir, Tag) end,
     case git_cache_ref_repo(Url) of
         noref ->
+            ?DEBUG("Git reference-cache disabled", []),
             ok = CloneF();
         {hit, RefDir} ->
             %% cache hit, reference-clone from the cache
             ?DEBUG("Git reference-cache hit: ~ts", [RefDir]),
-            ok = git_clone_ref(RefDir, CloneF);
+            try
+                ok = git_clone_ref(RefDir, CloneF)
+            catch
+                _ : _ ->
+                    ?WARN("Failed to --reference clone ~ts", [Url]),
+                    ?WARN("Fallback to regular clone", []),
+                    CloneF()
+            end;
         {miss, RefDir} ->
             %% cache miss, never auto-fill reference-clone cache
             ?DEBUG("Git reference-cache miss: ~ts", [RefDir]),
@@ -267,16 +275,19 @@ maybe_fill_ref(RefDir, Dir) ->
         _ ->
             ?DEBUG("Git reference-cache autofill: ~ts", [RefDir]),
             ok = cp_r(Dir, RefDir),
-            ShallowMark = filename:join([RefDir, ".git", "shallow"]),
-            case filelib:is_regular(ShallowMark) of
-                true ->
-                    %% it's a shallow clone, unshallow it
-                    Opts = [{cd, RefDir}, {use_stdout, true}, abort_on_error],
-                    {ok, _} = rebar_utils:sh("git fetch origin --unshallow", Opts),
-                    ok;
-                false ->
-                    ok
-            end
+            ok = maybe_unshallow(RefDir)
+    end.
+
+maybe_unshallow(Dir) ->
+    ShallowMark = filename:join([Dir, ".git", "shallow"]),
+    case filelib:is_regular(ShallowMark) of
+        true ->
+            %% it's a shallow clone, unshallow it
+            Opts = [{cd, Dir}, {use_stdout, true}, abort_on_error],
+            {ok, _} = rebar_utils:sh("git fetch origin --unshallow", Opts),
+            ok;
+        false ->
+            ok
     end.
 
 %% Use different git clone commands depending on git --version
@@ -496,6 +507,7 @@ git_clone_options() ->
         undefined ->
             "";
         Dir ->
+            ok = maybe_unshallow(Dir),
             "--reference " ++ Dir ++ " --dissociate "
     end ++
     case os:getenv("REBAR_GIT_CLONE_OPTIONS") of
