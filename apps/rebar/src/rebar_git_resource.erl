@@ -241,9 +241,9 @@ git_clone2(tag, GitVsn, Url, Dir, Tag) ->
             ok = CloneF();
         {hit, RefDir} ->
             %% cache hit, reference-clone from the cache
-            ?DEBUG("Git reference-cache hit: ~ts", [RefDir]),
             try
-                ok = git_clone_ref(RefDir, CloneF)
+                ok = git_clone_ref(RefDir, CloneF),
+                ?INFO("Git reference-cache hit: ~ts", [RefDir])
             catch
                 _ : _ ->
                     ?WARN("Failed to --reference clone ~ts", [Url]),
