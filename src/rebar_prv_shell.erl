@@ -178,22 +178,27 @@ kill_old_user() ->
     %% terminate the current user's port, in a way that makes it shut down,
     %% but without taking down the supervision tree so that the escript doesn't
     %% fully die
-    [P] = [P || P <- element(2,process_info(whereis(user), links)), is_port(P)],
+    [P] = [P || P <- element(2,process_info(whereis(user), links)),
+                case proc_lib:initial_call(P) of
+                    {user_drv, init, _} -> true;
+                    _ -> false
+                end],
+    MRef = monitor(process, P),
     user ! {'EXIT', P, normal}, % pretend the port died, then the port can die!
     exit(P, kill),
-    wait_for_port_death(1000, P),
+    wait_for_pid_death(1000, MRef),
     OldUser.
 
-wait_for_port_death(N, _) when N < 0 ->
+wait_for_pid_death(N, _) when N < 0 ->
     %% This risks displaying a warning!
     whatever;
-wait_for_port_death(N, P) ->
-    case erlang:port_info(P) of
-        undefined ->
-            ok;
-        _ ->
-            timer:sleep(10),
-            wait_for_port_death(N-10, P)
+wait_for_pid_death(N, MRef) ->
+    receive
+        {'DOWN', MRef, process, _, _} ->
+            ok
+    after
+        10 ->
+            wait_for_pid_death(N - 10, MRef)
     end.
 
 setup_new_shell(ShellArgs) ->
