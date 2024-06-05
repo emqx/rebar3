@@ -428,8 +428,12 @@ load_file(_Files, builtin, Name) ->
     {ok, Bin} = file:read_file(Name),
     Bin;
 load_file(_Files, plugin, Name) ->
-    {ok, Bin} = file:read_file(Name),
-    Bin;
+    case file:read_file(Name) of
+        {ok, Bin} ->
+            Bin;
+        {error, Reason} ->
+            ?ABORT("Failed to load file ~p: ~p\n", [Name, Reason])
+    end;
 load_file(_Files, file, Name) ->
     case file:read_file(Name) of
         {ok, Bin} -> Bin;
