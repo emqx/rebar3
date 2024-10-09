@@ -1,16 +1,23 @@
 name: Common Test
 
-on: [pull_request, push]
-
 env:
   LATEST_OTP_RELEASE: 27
 
+on:
+  pull_request:
+    branches:
+      - '*-emqx'
+  push:
+    branches:
+      - '*-emqx'
+
 jobs:
   linux:
-    name: Test on OTP ${{ matrix.otp_version }} and ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Test on OTP ${{ matrix.otp_version }}
+    runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         otp_version: [25, 26, 27]
         os: [ubuntu-latest]
@@ -19,9 +26,13 @@ jobs:
       image: erlang:${{ matrix.otp_version }}
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Compile
-      run: ./bootstrap
+    - uses: actions/checkout@v4.2.0
+      with:
+        fetch-depth: 0
+    - name: build
+      run: |
+        git config --global --add safe.directory $(pwd)
+        ./bootstrap
     - name: CT tests
       run: ./rebar3 ct
     - shell: bash
@@ -35,40 +46,20 @@ jobs:
     name: Test on MacOS
     runs-on: macos-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        otp_version: [25, 26, 27]
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Brew Version Check
-      run: brew --version
-    - name: Brew Cleanup
+    - uses: actions/checkout@v4.2.0
+      with:
+        fetch-depth: 0
+    - name: Install erlang
       run: |
-        brew cleanup --prune=all -s
-        brew autoremove
-    - name: Brew Untap Casks
-      run: brew untap homebrew/cask homebrew/core
-    - name: Keep Brew Fresh
-      run: |
-        brew update || true
-        brew upgrade || true
-    - name: Debug Brew
-      run: brew doctor || true
-    - name: Install Erlang
-      #run: brew install erlang@${{ env.LATEST_OTP_RELEASE }}
-      # fall back to OTP-26 since OTP 27.0 doesn't build on homebrew due to manpages issues
-      run: brew install erlang@26
+        brew install erlang@${{ matrix.otp_version }}
+        echo "PATH=$(brew --prefix)/opt/erlang@${{ matrix.otp_version }}/bin:$PATH" >> $GITHUB_ENV
     - name: Compile
       run: ./bootstrap
     - name: CT tests
       run: ./rebar3 ct
-
-  windows:
-    name: Test on Windows
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install Erlang
-      run: choco install erlang
-    - name: Compile
-      run: .\bootstrap.ps1
-    - name: CT tests
-      run: .\rebar3.ps1 ct
