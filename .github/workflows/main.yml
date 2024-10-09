@@ -10,7 +10,7 @@ on:
 
 jobs:
   linux:
-    name: Test on OTP ${{ matrix.otp_version }} and ${{ matrix.os }}
+    name: Test on OTP ${{ matrix.otp_version }}
     runs-on: ubuntu-latest
 
     strategy:
