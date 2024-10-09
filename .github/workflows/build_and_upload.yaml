@@ -18,10 +18,11 @@ jobs:
   build-and-upload:
     runs-on: ubuntu-latest
     container:
-      image: erlang:26
+      image: erlang:27
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.2.0
       with:
+        fetch-depth: 0
         ref: ${{ github.event.inputs.tag }}
     - name: build
       run: |
