@@ -418,7 +418,7 @@ extra_src_dirs(Config) ->
 %% Helpers
 
 erts_files() ->
-    ErtsDir = code:lib_dir(erts, ebin),
+    ErtsDir = filename:join(code:lib_dir(erts), "ebin"),
     ErtsBeams = filelib:wildcard("*.beam", ErtsDir),
     ErtsFiles = lists:map(fun(Beam) -> filename:join(ErtsDir, Beam) end,
                           ErtsBeams),

@@ -270,11 +270,11 @@ app_files(AppName, ExtraDirs) ->
     end.
 
 app_ebin(AppName) ->
-    case code:lib_dir(AppName, ebin) of
+    case code:lib_dir(AppName) of
         {error, bad_name} = Error ->
             Error;
-        EbinDir ->
-            check_ebin(EbinDir)
+        LibDir ->
+            check_ebin(filename:join(LibDir, "ebin"))
     end.
 
 check_ebin(EbinDir) ->
