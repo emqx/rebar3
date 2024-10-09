@@ -450,11 +450,11 @@ maybe_expand_include_lib_path(File, Dir) ->
         [_] ->
             warn_and_find_path(File, Dir);
         [Lib | SubDir] ->
-            case code:lib_dir(list_to_atom(Lib), list_to_atom(filename:join(SubDir))) of
+            case code:lib_dir(list_to_atom(Lib)) of
                 {error, bad_name} ->
                     warn_and_find_path(File, Dir);
-                AppDir ->
-                    [filename:join(AppDir, File1)]
+                LibDir ->
+                    [filename:join([LibDir, SubDir, File1])]
             end
     end.
 
