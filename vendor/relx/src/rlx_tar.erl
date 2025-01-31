@@ -19,16 +19,8 @@ make_tar(Release, OutputDir, State) ->
         Result when Result =:= ok orelse (is_tuple(Result) andalso
                                           element(1, Result) =:= ok) ->
             maybe_print_warnings(Result),
-            {ok, State1} = case rlx_state:is_relx_sasl(State) of
-                               true ->
-                                   %% we used extra_files to copy in the overlays
-                                   %% nothing to do now but rename the tarball to <relname>-<vsn>.tar.gz
-                                   file:rename(filename:join(OutputDir, [Name, ".tar.gz"]), TarFile),
-                                   {ok, State};
-                               false ->
-                                   %% have to manually add the extra files to the tarball
-                                   update_tar(ExtraFiles, State, OutputDir, Name, Vsn, rlx_release:erts(Release))
-                           end,
+            TarHooks = rlx_state:tar_hooks(State),
+            {ok, State1} = maybe_update_tar(TarFile, Release, ExtraFiles, TarHooks, OutputDir, State),
             ?log_info("Tarball successfully created: ~s",
                       [rlx_file_utils:print_path(TarFile)]),
             {ok, State1};
@@ -137,12 +129,22 @@ extra_files(Release, OutputDir, State) ->
                    []
            end].
 
+maybe_update_tar(TarFile, Release, _ExtraFiles, [], OutputDir, State) ->
+    %% no tar hooks
+    %% we used extra_files to copy in the overlays
+    %% nothing to do now but rename the tarball to <relname>-<vsn>.tar.gz
+    Name = rlx_release:name(Release),
+    file:rename(filename:join(OutputDir, [Name, ".tar.gz"]), TarFile),
+    {ok, State};
+maybe_update_tar(TarFile, Release, ExtraFiles, TarHooks, OutputDir, State) ->
+    update_tar(TarFile, Release, ExtraFiles, TarHooks, OutputDir, State).
+
 %% unpack the tarball to a temporary directory and repackage it with
 %% the overlays and other files we need to complete the target system
-update_tar(ExtraFiles, State, OutputDir, Name, Vsn, ErtsVersion) ->
+update_tar(TarFile, Release, ExtraFiles, TarHooks, OutputDir, State) ->
     TempDir = rlx_file_utils:mkdtemp(),
     try
-        update_tar(ExtraFiles, State, TempDir, OutputDir, Name, Vsn, ErtsVersion)
+        update_tar(TarFile, Release, ExtraFiles, TarHooks, OutputDir, TempDir, State)
     catch
         ?WITH_STACKTRACE(Type, Exception, Stacktrace)
         ?log_debug("exception updating tarball ~p:~p stacktrace=~p",
@@ -154,12 +156,14 @@ update_tar(ExtraFiles, State, OutputDir, Name, Vsn, ErtsVersion) ->
 
 %% used to add additional files to the release tarball when using systools
 %% before the `extra_files' feature was added to `make_tar'
-update_tar(ExtraFiles, State, TempDir, OutputDir, Name, Vsn, ErtsVersion) ->
-    TarFile = filename:join(OutputDir, [Name, "-", Vsn, ".tar.gz"]),
+update_tar(TarFile, Release, ExtraFiles, TarHooks, OutputDir, TempDir, State) ->
+    Name = rlx_release:name(Release),
+    ErtsVersion = rlx_release:erts(Release),
     ?log_debug("updating tarball ~s with extra files ~p", [TarFile, ExtraFiles]),
     IncludeErts = rlx_state:include_erts(State),
     file:rename(filename:join(OutputDir, [Name, ".tar.gz"]), TarFile),
     erl_tar:extract(TarFile, [{cwd, TempDir}, compressed]),
+    maybe_run_hooks(TarHooks, TarFile, TempDir, Release, OutputDir, State),
     ok =
         erl_tar:create(TarFile,
                        [{"releases", filename:join(TempDir, "releases")} |
@@ -172,6 +176,17 @@ update_tar(ExtraFiles, State, TempDir, OutputDir, Name, Vsn, ErtsVersion) ->
                         end]++ExtraFiles, [dereference,compressed]),
     ?log_debug("update tarball ~s completed", [TarFile]),
     {ok, State}.
+
+maybe_run_hooks([], _TarFile, _TempDir, _Release, _OutputDir, _State) ->
+    ok;
+maybe_run_hooks([Command | Hooks], TarFile, TempDir, Release, OutputDir, State) ->
+    ?log_info("Running hook: ~s", [Command]),
+    rlx_util:sh(Command, [{env, [{"RELX_TAR_FILE", TarFile},
+                                 {"RELX_TEMP_DIR", TempDir},
+                                 {"RELX_OUTPUT_DIR", OutputDir},
+                                 {"RELX_RELEASE_NAME", atom_to_list(rlx_release:name(Release))},
+                                 {"RELX_RELEASE_VSN", rlx_release:vsn(Release)}]}]),
+    maybe_run_hooks(Hooks, TarFile, TempDir, Release, OutputDir, State).
 
 %% include each of these config files if they exist
 config_files(Vsn, OutputDir) ->

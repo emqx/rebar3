@@ -154,6 +154,8 @@ load({generate_start_script, GenerateStartScript}, {ok, State}) ->
     {ok, rlx_state:generate_start_script(State, GenerateStartScript)};
 load({include_nodetool, IncludeNodetool}, {ok, State}) ->
     {ok, rlx_state:include_nodetool(State, IncludeNodetool)};
+load({tar_hooks, TarHooks}, {ok, State}) ->
+    {ok, rlx_state:tar_hooks(State, TarHooks)};
 load(_, Error={error, _}) ->
     erlang:error(?RLX_ERROR(Error));
 load(InvalidTerm, {ok, State}) ->
