@@ -18,7 +18,7 @@ case Vsn =:= "%%Rebar3 ${VERSION}" of
     false ->
         io:format("version mismatch in rebar.config\n"),
         io:format("escript_comment: " ++ Vsn ++ "\n"),
-        io:format("git descrite: ${VERSION}"),
+        io:format("git describe: ${VERSION}"),
         halt(1)
 end.
 EOF
