@@ -28,6 +28,11 @@ jobs:
       run: |
         git config --global --add safe.directory $(pwd)
         ./build
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rebar3
+        path: ./rebar3
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: github.event_name == 'push' || inputs.create_release
