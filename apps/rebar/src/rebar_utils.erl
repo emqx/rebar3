@@ -1121,7 +1121,7 @@ ssl_opts(ssl_verify_enabled, Url) ->
         true ->
             CACerts = get_cacerts(),
             SslOpts = [{verify, verify_peer}, {depth, 10}, {cacerts, CACerts},
-                       {partial_chain, fun partial_chain/1}],
+                       {partial_chain, fun partial_chain/1}, {middlebox_comp_mode, false}],
             check_hostname_opt(Url, SslOpts);
         false ->
             ?WARN("Insecure HTTPS request (peer verification disabled), "
