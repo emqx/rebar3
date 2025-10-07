@@ -95,7 +95,9 @@
          check_for_undefined_functions/2,
          is_relx_sasl/1,
          filter_xref_warning/1,
-         filter_xref_warning/2]).
+         filter_xref_warning/2,
+         tar_hooks/1,
+         tar_hooks/2]).
 
 -type mode() :: dev | prod | minimal.
 
@@ -145,7 +147,8 @@
                   %% default check is for sasl 3.5 and above
                   %% version 3.5 of sasl has systools with changes for relx
                   %% related to `make_script', `make_tar' and the extended start script
-                  is_relx_sasl=false :: boolean()}).
+                  is_relx_sasl=false :: boolean(),
+                  tar_hooks=[] :: [string()]}).
 
 %%============================================================================
 %% types
@@ -473,3 +476,12 @@ exref(State, ExRef) ->
 
 is_relx_sasl(#state_t{is_relx_sasl=IsRelxSasl}) ->
     IsRelxSasl.
+
+-spec tar_hooks(t()) -> [string()] | undefined.
+tar_hooks(#state_t{tar_hooks=TarHooks}) ->
+    TarHooks.
+
+-spec tar_hooks(t(), [string()]) -> t().
+tar_hooks(S, TarHooks) ->
+    S#state_t{tar_hooks=TarHooks}.
+

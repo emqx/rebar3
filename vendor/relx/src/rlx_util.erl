@@ -35,7 +35,8 @@
          render/2,
          load_file/3,
          template_files/0,
-         sh/1]).
+         sh/1,
+         sh/2]).
 
 -export([os_type/1]).
 
@@ -242,9 +243,13 @@ is_win32_erts(Path) ->
       true
   end.
 
-sh(Command0) ->
+sh(Command) ->
+    sh(Command, []).
+
+sh(Command0, ExtraPortSettings) ->
     Command = lists:flatten(patch_on_windows(Command0)),
-    PortSettings = [exit_status, {line, 16384}, use_stdio, stderr_to_stdout, hide, eof, binary],
+    PortSettings = ExtraPortSettings ++
+        [exit_status, {line, 16384}, use_stdio, stderr_to_stdout, hide, eof, binary],
 
     Port = open_port({spawn, Command}, PortSettings),
     try

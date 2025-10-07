@@ -105,7 +105,7 @@ warn_vsn_once() ->
     case Warn of
         false -> ok;
         true ->
-            ?WARN("Rebar3 detected a lock file from a newer version. "
+            ?DEBUG("Rebar3 detected a lock file from a newer version. "
                   "It will be loaded in compatibility mode, but important "
                   "information may be missing or lost. It is recommended to "
                   "upgrade Rebar3.", [])
@@ -252,6 +252,7 @@ consult_file(File) ->
 consult_file_(File) when is_binary(File) ->
     consult_file_(binary_to_list(File));
 consult_file_(File) ->
+    Config=
     case filename:extension(File) of
         ".script" ->
             {ok, Terms} = consult_and_eval(remove_script_ext(File), File),
@@ -265,7 +266,8 @@ consult_file_(File) ->
                 false ->
                     rebar_file_utils:try_consult(File)
             end
-    end.
+    end,
+    maybe_gen(File, Config).
 
 %% @private checks that a list is in a key-value format.
 %% Raises an exception in any other case.
@@ -422,3 +424,59 @@ config_file() ->
         ConfigFile ->
             ConfigFile
     end.
+
+maybe_gen(File, Term) ->
+    Dir = filename:dirname(File),
+    ConfigFileName = filename:basename(File),
+    ModuleFile = module_file_name(ConfigFileName),
+    ModuleFilePath = filename:join([Dir, ModuleFile]),
+    case filelib:is_regular(ModuleFilePath) of
+        true -> compile_and_run(ModuleFilePath, Term);
+        false -> Term
+    end.
+
+%% e.g. rebar.config -> rebar.config.erl
+module_file_name(ConfigFileName) ->
+    iolist_to_binary([ConfigFileName, ".erl"]).
+
+%% e.g. app-name/rebar.config.erl -> rebar.config_app-name.erl
+%% To ensure module name uniqueness
+module_name(ModuleFile) ->
+    [ErlFile, AppDirName | _] = lists:reverse(filename:split(ModuleFile)),
+    ModuleName = filename:basename(ErlFile, ".erl"),
+    case iolist_to_binary(AppDirName) of
+        <<".">> -> iolist_to_binary(ModuleName); %% project root
+        _ -> iolist_to_binary([ModuleName, "_", AppDirName])
+    end.
+
+compile_and_run(ModuleFile, Term) ->
+    ?DEBUG("Evaluating config writer ~s", [ModuleFile]),
+    Module = generate_and_compile(ModuleFile),
+    Dir = filename:dirname(ModuleFile),
+    Module:do(Dir, Term).
+
+generate_and_compile(ModuleFile) ->
+    ErlCode0 = case file:read_file(ModuleFile) of
+                   {ok, Bin} -> Bin;
+                   {error, Reason} ->
+                       ?ERROR("failed_to_read_config_writer_module ~s ~p", [ModuleFile, Reason]),
+                       error({failed_to_read_config_writer_module, ModuleFile, Reason})
+               end,
+    ModuleName = module_name(ModuleFile),
+    ErlCode = rewrite_module_attribute(ErlCode0, ModuleName),
+    TmpModName = iolist_to_binary([ModuleName, ".erl"]),
+    TmpModFile = filename:join([rebar_file_utils:system_tmpdir(), TmpModName]),
+    ok = filelib:ensure_dir(TmpModFile),
+    ok = file:write_file(TmpModFile, ErlCode),
+    CompileOpts = [verbose,report_errors,report_warnings,return_errors,binary],
+    case compile:file(binary_to_list(TmpModFile), CompileOpts) of
+        {ok, Mod, BinCode} ->
+            {module, _} = code:load_binary(Mod, binary_to_list(ModuleFile), BinCode),
+            Mod;
+        Error ->
+            ?ERROR("failed_to_compile ~s ~p", [ModuleFile, Error]),
+            error({failed_to_compile, ModuleFile, Error})
+    end.
+
+rewrite_module_attribute(ErlCode, ModuleName) ->
+    re:replace(ErlCode, "-module(.+)", ["-module('", ModuleName ,"')."]).

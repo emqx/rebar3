@@ -1,0 +1,43 @@
+name: Build and upload
+
+on:
+  push:
+    tags:
+      - '*-emqx-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        required: true
+      create_release:
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:27
+    steps:
+    - uses: actions/checkout@v4.2.0
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.inputs.tag }}
+    - name: build
+      run: |
+        git config --global --add safe.directory $(pwd)
+        ./build
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rebar3
+        path: ./rebar3
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' || inputs.create_release
+      with:
+        name: Release ${{ github.ref_name }}
+        files: ./rebar3
+        draft: false
+        prerelease: false
