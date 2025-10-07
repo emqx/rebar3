@@ -66,6 +66,9 @@ to_ref(Rev) ->
 sparse_checkout(Name, GitVsn, Dir, Ref, SparseDir) when GitVsn >= {1,7,4};
                                                         GitVsn =:= undefined  ->
     ?DEBUG("doing sparse checkout in ~s of dir ~s", [Dir, SparseDir]),
+    %% Disable sparse-checkout before check_directory
+    %% in case it has been sparse-checkout before
+    rebar_utils:sh(?FMT("git sparse-checkout disable", []), [{cd, Dir}]),
     check_directory(Name, Dir, SparseDir),
     rebar_utils:sh(?FMT("git --git-dir=.git config core.sparsecheckout true", []),
                    [{cd, Dir}]),
